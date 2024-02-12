@@ -100,18 +100,31 @@ class Plotter:
     Utility plotter abstract object
     """
 
-    def __init__(self, ax=None, **kwargs):
+    def __init__(self, ax=None, subplots=False, **kwargs):
         for kwarg in kwargs:
             if kwarg not in PLOT_DEFAULTS:
                 bluemira_warn(f"Unrecognised plot kwarg: {kwarg}")
 
-        if ax is None:
-            _f, self.ax = plt.subplots()
+        if not subplots:
+            if ax is None:
+                _f, self.ax = plt.subplots()
+            else:
+                self.ax = ax
+            self.ax.set_xlabel("$x$ [m]")
+            self.ax.set_ylabel("$z$ [m]")
+            self.ax.set_aspect("equal")
+
         else:
-            self.ax = ax
-        self.ax.set_xlabel("$x$ [m]")
-        self.ax.set_ylabel("$z$ [m]")
-        self.ax.set_aspect("equal")
+            if ax is None:
+                _f, self.ax = plt.subplots(nrows=1, ncols=2)
+            else:
+                self.ax = ax
+            self.ax[0].set_xlabel("$x$ [m]")
+            self.ax[0].set_ylabel("$z$ [m]")
+            self.ax[0].set_aspect("equal")
+            self.ax[1].set_xlabel("$x$ [m]")
+            self.ax[1].set_ylabel("$z$ [m]")
+            self.ax[1].set_aspect("equal")
 
 
 class GridPlotter(Plotter):
@@ -339,7 +352,6 @@ class CoilGroupPlotter(Plotter):
                 "linewidth": 1,
                 "edgecolor": "k",
             },
-            zorder=100,
         )
 
     def _plot_coil(self, x_boundary, z_boundary, ctype, fill=True, **kwargs):
@@ -442,6 +454,32 @@ class EquilibriumPlotterMixin:
             self.eq.x, self.eq.z, self.psi, levels=levels, cmap=cmap, zorder=8
         )
 
+    def plot_psi_coilset(self, **kwargs):
+        """
+        Plot flux surfaces - coilset contribution
+        """
+        nlevels = kwargs.pop("nlevels", PLOT_DEFAULTS["psi"]["nlevels"])
+        cmap = kwargs.pop("cmap", PLOT_DEFAULTS["psi"]["cmap"])
+
+        levels = np.linspace(
+            np.amin(self.coilset_psi), np.amax(self.coilset_psi), nlevels
+        )
+        self.ax[0].contour(
+            self.eq.x, self.eq.z, self.coilset_psi, levels=levels, cmap=cmap, zorder=8
+        )
+
+    def plot_psi_plasma(self, **kwargs):
+        """
+        Plot flux surfaces - plamsa contribution
+        """
+        nlevels = kwargs.pop("nlevels", PLOT_DEFAULTS["psi"]["nlevels"])
+        cmap = kwargs.pop("cmap", PLOT_DEFAULTS["psi"]["cmap"])
+
+        levels = np.linspace(np.amin(self.plasma_psi), np.amax(self.plasma_psi), nlevels)
+        self.ax[1].contour(
+            self.eq.x, self.eq.z, self.plasma_psi, levels=levels, cmap=cmap, zorder=8
+        )
+
     def plot_plasma_current(self, **kwargs):
         """
         Plots flux surfaces inside plasma
@@ -503,12 +541,19 @@ class EquilibriumPlotter(EquilibriumPlotterMixin, Plotter):
         plasma=False,
         show_ox=True,
         field=False,
+        split_psi_cont=False,
     ):
-        super().__init__(ax)
+        if split_psi_cont:
+            super().__init__(ax, subplots=True)
+        else:
+            super().__init__(ax)
         self.eq = equilibrium
 
         # Do some housework
         self.psi = self.eq.psi()
+        if split_psi_cont:
+            self.coilset_psi = self.eq.coilset.psi(self.eq.x, self.eq.z)
+            self.plasma_psi = self.eq.plasma.psi()
 
         self.o_points, self.x_points = self.eq.get_OX_points(self.psi, force_update=True)
 
@@ -529,22 +574,27 @@ class EquilibriumPlotter(EquilibriumPlotterMixin, Plotter):
             self.op_psi = np.amin(self.psi)
 
         if not field:
-            self.plot_plasma_current()
-            self.plot_psi()
+            if split_psi_cont:
+                self.plot_psi_coilset()
+                self.plot_psi_plasma()
+            else:
+                self.plot_plasma_current()
+                self.plot_psi()
         else:
             self.plot_Bp()
 
-        if self.o_points and self.x_points:
-            # Only plot if we can normalise psi
-            self.plot_separatrix()
-            self.plot_flux_surface(1.05, "pink")
+        if not split_psi_cont:
+            if self.o_points and self.x_points:
+                # Only plot if we can normalise psi
+                self.plot_separatrix()
+                self.plot_flux_surface(1.05, "pink")
 
-        if show_ox:
-            self.plot_X_points()
-            self.plot_O_points()
+            if show_ox:
+                self.plot_X_points()
+                self.plot_O_points()
 
-        if plasma:
-            self.plot_plasma_coil()
+            if plasma:
+                self.plot_plasma_coil()
 
     def plot_flux_surface(self, psi_norm, color="k"):
         """

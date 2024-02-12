@@ -1695,12 +1695,18 @@ class Equilibrium(CoilSetMHDState):
         return abs(psi_1 - psi_2) < PSI_NORM_TOL
 
     def plot(
-        self, ax: Optional[plt.Axes] = None, plasma: bool = False, show_ox: bool = True
+        self,
+        ax: Optional[plt.Axes] = None,
+        plasma: bool = False,
+        show_ox: bool = True,
+        split_psi_cont: bool = False,
     ):
         """
         Plot the equilibrium magnetic flux surfaces object onto `ax`.
         """
-        return EquilibriumPlotter(self, ax, plasma=plasma, show_ox=show_ox)
+        return EquilibriumPlotter(
+            self, ax, plasma=plasma, show_ox=show_ox, split_psi_cont=split_psi_cont
+        )
 
     def plot_field(self, ax: Optional[plt.Axes] = None, show_ox: bool = True):
         """
