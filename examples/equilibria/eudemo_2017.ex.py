@@ -286,7 +286,6 @@ x_point = FieldNullConstraint(
 )
 
 ref_opt_problem = UnconstrainedTikhonovCurrentGradientCOP(
-    reference_eq.coilset,
     reference_eq,
     MagneticConstraintSet([isoflux, x_point]),
     gamma=1e-7,
