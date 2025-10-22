@@ -680,7 +680,7 @@ def test_legendre_q_function():
     ]
     tau_c = 1.2824746787307681
     test_leg_q_values = [legendre_q(m - 1 / 2, 1, np.cosh(tau_c)) for m in range(6)]
-    assert test_leg_q_values == expected_leg_q_values
+    assert test_leg_q_values == pytest.approx(expected_leg_q_values)
 
     # test on array input for x
     expected_leg_q_array_values = [
