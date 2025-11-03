@@ -1274,15 +1274,43 @@ class Equilibrium(CoilSetMHDState):
 
         self._solver = GSSolver(grid, force_symmetry=self.force_symmetry)
 
-    def reset_grid(self, grid: Grid, **kwargs):
+    def reset_grid(
+        self, grid: Grid, psi: npt.NDArray[np.float64] | None = None, **kwargs
+    ):
         """
-        Yeah, yeah...
+        Reset the grid for the Equilibrium.
+
+        Parameters
+        ----------
+        grid:
+            The grid to set the Equilibrium on
+        psi:
+            Psi array to use
         """
-        super().reset_grid(grid, **kwargs)
+        self.set_grid(grid)
+        self.boundary = FreeBoundary(grid)
+
+        self._clear_OX_points()
+        if psi is not None:
+            o_points, x_points = self.get_OX_points(
+                psi=psi,
+                force_update=True,
+            )
+            jtor = self.profiles.jtor(
+                grid.x,
+                grid.z,
+                psi,
+                o_points=o_points,
+                x_points=x_points,
+            )
+            self._jtor = jtor
+            self._remap_greens()
+            psi -= self.coilset.psi(grid.x, grid.z)
+            self._update_plasma(psi, self._jtor)
+        else:
+            self._set_init_plasma(grid)
         vcontrol = kwargs.get("vcontrol", self._kwargs["vcontrol"])
         self.set_vcontrol(vcontrol)
-        # TODO @CoronelBuendia: reinit psi and jtor?
-        # 3658
 
     def _set_init_plasma(
         self,
