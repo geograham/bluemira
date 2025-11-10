@@ -585,6 +585,7 @@ def calculate_connection_length(
     n_turns_max: int = 50,
     n_points: int = 1000,
     calculation_method: str = "flux_surface_geometry",
+    verbose=True,  # noqa: FBT002
 ):
     """
     Calculate the parallel connection length from a starting point to a flux-intercepting
@@ -711,6 +712,7 @@ def calculate_connection_length(
             forward=forward,
             first_wall=first_wall,
             f_s=f_s,
+            verbose=verbose,
         )
 
     raise BluemiraError("Please select a valid calculation_method option.")

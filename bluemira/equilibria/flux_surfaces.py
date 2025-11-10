@@ -461,7 +461,7 @@ class PartialOpenFluxSurface(OpenFluxSurface):
 
         self.alpha = None
 
-    def clip(self, first_wall: Coordinates):
+    def clip(self, first_wall: Coordinates, verbose=True):  # noqa: FBT002
         """
         Clip the PartialOpenFluxSurface to a first wall.
 
@@ -473,9 +473,10 @@ class PartialOpenFluxSurface(OpenFluxSurface):
         coords_union_inters, args = join_intersect(self.coords, first_wall, get_arg=True)
 
         if not args:
-            bluemira_warn(
-                "No intersection detected between flux surface and first_wall."
-            )
+            if verbose:
+                bluemira_warn(
+                    "No intersection detected between flux surface and first_wall."
+                )
             self.alpha = None
             return
 
@@ -883,6 +884,7 @@ def calculate_connection_length_fs(
     *,
     forward: bool = True,
     f_s: Coordinates | None = None,
+    verbose: bool = True,
 ) -> float:
     """
     Calculate the parallel connection length from a starting point to a flux-intercepting
@@ -902,6 +904,8 @@ def calculate_connection_length_fs(
         Flux-intercepting surface. Defaults to the grid of the equilibrium
     f_s:
         Coordinates of flux surface through x and z.
+    verbose:
+        True to print warnings
 
     Returns
     -------
@@ -937,7 +941,7 @@ def calculate_connection_length_fs(
     lfs, hfs = f_s.split(Point(x=x, z=z))
     fs = lfs if forward else hfs
 
-    fs.clip(first_wall)
+    fs.clip(first_wall, verbose=verbose)
     return fs.connection_length(eq)
 
 
