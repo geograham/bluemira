@@ -885,7 +885,7 @@ class Circuit(CoilGroup):
         The current value, if not provided the first coil current is used
     """
 
-    __slots__ = ()
+    __slots__ = CoilGroup.__slots__
 
     def __init__(
         self,
