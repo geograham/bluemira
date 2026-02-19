@@ -10,11 +10,15 @@ Picard iteration procedures for equilibria (and their infinite variations)
 
 from __future__ import annotations
 
+import pathlib
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+# For Jon's Iteration Inspector (JII)
+import pandas as pd
 
 from bluemira.base.look_and_feel import (
     bluemira_print,
@@ -432,6 +436,68 @@ class JsourceConvergence(ConvergenceCriterion):
         return self.check_converged(conv)
 
 
+class HailMaryConvergence(ConvergenceCriterion):
+    """
+    Parameters
+    ----------
+    limit:
+        The limit at which the convergence criterion is met.
+    mask:
+        Of the area within a constrained region.
+    """
+
+    def __init__(self, mask: npt.NDArray[np.float64], limit: float = PSI_REL_TOL):
+        super().__init__(limit, "$\\dfrac{max|\\Delta\\psi|}{max(\\psi)-min(\\psi)}$")
+        self.mask = mask
+
+    def __call__(
+        self,
+        psi_old: npt.NDArray[np.float64],
+        psi: npt.NDArray[np.float64],
+        i: int,
+        *,
+        print_status: bool = True,
+    ) -> bool:
+        """
+        Carry out convergence check.
+
+        Parameters
+        ----------
+        psi_old:
+            The value from the previous iteration.
+        psi:
+            The value from the current iteration.
+        i:
+            The index of the iteration.
+        print_status:
+            If True then prints the status of the convergence, by default True.
+
+        Returns
+        -------
+        True if the convergence criterion is met, else False.
+        """
+
+        def get_dpsi_rel(psi_old, psi):
+            dpsi = psi_old - psi
+            dpsi_max = np.amax(abs(dpsi))
+            return dpsi_max / (np.amax(psi) - np.amin(psi))
+
+        # Full psi
+        dpsi_rel = get_dpsi_rel(psi_old, psi)
+
+        # Outer psi
+        outer_dpsi_rel = get_dpsi_rel(psi_old * self.mask, psi * self.mask)
+
+        if print_status:
+            bluemira_print_flush(
+                f"EQUILIBRIA G-S iter {i}: relative delta_psi: {100 * dpsi_rel:.2f} %"
+            )
+            bluemira_print_flush(
+                f"EQUILIBRIA G-S iter {i}: relative delta_psi: {100 * outer_dpsi_rel:.2f} %"
+            )
+        return self.check_converged(outer_dpsi_rel)
+
+
 class PicardIterator:
     """A Picard iterative solver.
 
@@ -511,6 +577,25 @@ class PicardIterator:
         """
         return self._j_tor
 
+    # JII
+    def save_iter_info_as_csv(self, name="data"):
+        data = {
+            "f_x": self.result.f_x,
+            "n_evals": self.result.n_evals,
+            "constraints_satisfied": self.result.constraints_satisfied,
+            "convergence": self.convergence.progress,
+        }
+        for i, x in enumerate(self.result.coilset.current):
+            data["x_" + str(i)] = x
+            output_path = name + ".csv"
+            # Only wite a header when the file is first created
+            pd.DataFrame(data).to_csv(
+                output_path,
+                mode="a",
+                header=not pathlib.Path(output_path).exists(),
+                index=False,
+            )
+
     def __call__(self) -> CoilsetOptimiserResult:
         """
         The iteration object call handle.
@@ -524,6 +609,8 @@ class PicardIterator:
         while self.i < self.maxiter:
             try:
                 next(iterator)
+                # JII
+                self.save_iter_info_as_csv()
             except StopIteration:  # noqa: PERF203
                 bluemira_print("EQUILIBRIA G-S converged value found.")
                 break
